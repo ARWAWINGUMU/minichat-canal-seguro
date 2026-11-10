@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minichat | Laboratorio de canal seguro</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 2rem 1rem; background: #f1f5f9; color: #18263a;
+      font: 1rem/1.55 system-ui, sans-serif;
+    }
+    main {
+      max-width: 42rem; margin: auto; padding: clamp(1.25rem, 5vw, 2rem);
+      border-radius: 1rem; background: white; border: 1px solid #d6e1ec;
+    }
+    h1, h2, p { margin-top: 0; }
+    h1 { margin-bottom: .35rem; }
+    h2 { margin-bottom: .5rem; font-size: 1.2rem; }
+    .fase { color: #425875; font-weight: 600; }
+    label { display: block; font-weight: 600; margin-bottom: .4rem; }
+    .entrada { display: flex; gap: .5rem; flex-wrap: wrap; }
+    input, button { font: inherit; border-radius: .5rem; padding: .55rem .8rem; }
+    input { flex: 1 1 13rem; min-width: 0; border: 1px solid #71839a; }
+    button { border: 0; background: #174d82; color: white; cursor: pointer; }
+    button:disabled { opacity: .7; cursor: wait; }
+    #estado { min-height: 1.6rem; margin: .6rem 0 1rem; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { margin-top: .5rem; padding: .5rem .75rem; border-radius: .4rem;
+         background: #edf4fa; overflow-wrap: anywhere; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="fase" id="fase"></p>
+    <h1>Minichat</h1>
+    <p>Envía un mensaje a la API y consulta los mensajes guardados durante la sesión.</p>
+
+    <form id="formulario">
+      <label for="texto">Mensaje</label>
+      <div class="entrada">
+        <input id="texto" name="texto" placeholder="mensaje-secreto-123" maxlength="500" required>
+        <button type="submit">Enviar</button>
+      </div>
+    </form>
+    <p id="estado" role="status"></p>
+
+    <section aria-labelledby="titulo-mensajes">
+      <h2 id="titulo-mensajes">Mensajes</h2>
+      <p id="vacio">Todavía no hay mensajes.</p>
+      <ul id="mensajes"></ul>
+    </section>
+  </main>
+
+  <script>
+    const endpoint = new URL('/mensajes', window.location.href);
+    endpoint.port = '8080';
+    const formulario = document.querySelector('#formulario');
+    const campo = document.querySelector('#texto');
+    const boton = formulario.querySelector('button');
+    const estado = document.querySelector('#estado');
+    const lista = document.querySelector('#mensajes');
+    const vacio = document.querySelector('#vacio');
+    document.querySelector('#fase').textContent =
+      'Laboratorio de canal seguro · ' + endpoint.protocol.slice(0, -1).toUpperCase();
+
+    async function consultar(opciones) {
+      const respuesta = await fetch(endpoint, opciones);
+      const datos = await respuesta.json();
+      if (!respuesta.ok) throw new Error(datos.error);
+      return datos;
+    }
+
+    async function actualizar() {
+      const mensajes = await consultar();
+      const elementos = document.createDocumentFragment();
+      for (const { texto } of mensajes) {
+        const item = document.createElement('li');
+        item.textContent = texto;
+        elementos.append(item);
+      }
+      lista.replaceChildren(elementos);
+      vacio.hidden = mensajes.length > 0;
+    }
+
+    formulario.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const texto = campo.value.trim();
+      if (!texto) {
+        estado.textContent = 'Escribe un mensaje.';
+        campo.focus();
+        return;
+      }
+      boton.disabled = true;
+      estado.textContent = 'Enviando…';
+
+      try {
+        await consultar({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ texto }),
+        });
+        campo.value = '';
+        estado.textContent = 'Mensaje enviado.';
+        try {
+          await actualizar();
+        } catch {
+          estado.textContent = 'Mensaje enviado. Recarga la página para actualizar la lista.';
+        }
+      } catch (error) {
+        estado.textContent = 'No se pudo enviar el mensaje. ' + error.message;
+      } finally {
+        boton.disabled = false;
+        campo.focus();
+      }
+    });
+
+    boton.disabled = true;
+    actualizar().catch(() => {
+      vacio.hidden = true;
+      estado.textContent = 'No se pudo cargar la lista. Comprueba que la API esté activa.';
+    }).finally(() => {
+      boton.disabled = false;
+    });
+  </script>
+</body>
+</html>

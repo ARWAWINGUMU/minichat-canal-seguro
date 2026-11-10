@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+
+# Certificados y claves privadas de la Fase 2
+certs/*.key
+certs/*.pem
+*.key
+
+# Capturas de tráfico de Alejandro
+*.pcap
+*.pcapng
+
+# Dependencias y archivos locales
+node_modules/
+.DS_Store
+Thumbs.db
