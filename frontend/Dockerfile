@@ -1,5 +1,6 @@
-FROM nginx:alpine
-COPY index.html /usr/share/nginx/html/index.html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
-EXPOSE 443
+FROM node:24-alpine
+WORKDIR /app
+COPY index.html server.js ./
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]

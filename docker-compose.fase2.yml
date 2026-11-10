@@ -20,8 +20,10 @@ services:
     build: frontend
     container_name: minichat-frontend-fase2
     ports:
-      - "3000:443" # El navegador entra por 3000 pero llega al 443 seguro de Nginx
-      - "80:80"    # Opcional, para que la redireccion nginx funcione si entran por el 80
+      - "3000:3000" # Exponemos directo el puerto 3000 seguro
+    environment:
+      - PORT=3000
+      - USE_TLS=true
     volumes:
       - ./certs:/certs:ro
     networks:
