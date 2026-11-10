@@ -31,17 +31,6 @@ services:
     depends_on:
       - backend
 
-  # Contenedor para que Alejandro haga la captura de la Fase 2 (tráfico TLS)
-  capturador:
-    image: nicolaka/netshoot
-    container_name: minichat-capturador-fase2
-    network_mode: "service:backend" # Comparte la red con el backend para poder escuchar su tráfico
-    command: tcpdump -i any -w /capturas/fase2_con_tls.pcap
-    volumes:
-      - ./capturas:/capturas
-    depends_on:
-      - backend
-
 networks:
   red-segura:
     driver: bridge

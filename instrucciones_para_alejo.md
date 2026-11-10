@@ -1,44 +1,55 @@
-# Instrucciones de Captura - Fase 2 (Canal Seguro TLS)
-**Para:** Alejandro
+# Instrucciones de Captura - Fase 1 (HTTP) y Fase 2 (Canal Seguro TLS)
 
-Hola Alejo. Ya implementé toda la seguridad y los certificados en la rama de la Fase 2. Ahora te toca hacer la captura del tráfico cifrado.
+La captura se hace directamente en el equipo con **Wireshark**, escuchando la interfaz de loopback
+(el navegador habla con la API por `localhost:8080`). Se usa el mismo procedimiento en ambas fases
+para poder comparar las evidencias.
 
-Sigue estos pasos al pie de la letra y tendrás tu archivo `.pcap` en menos de 5 minutos.
-
-## Paso 1: Bajar los cambios
-Asegúrate de estar en mi rama. En tu terminal ejecuta:
+## Preparación
 ```bash
 git fetch origin
 git checkout feature/fase2-tls
 git pull origin feature/fase2-tls
 ```
+En Wireshark selecciona la interfaz **Loopback: lo0** (en macOS; en Linux es `lo`, en Windows
+"Adapter for loopback traffic capture"). Opcional: filtro de captura `tcp port 8080`; filtro de
+visualización **`tcp.port == 8080`**.
 
-## Paso 2: Levantar el entorno de la Fase 2
-He creado un archivo `docker-compose.fase2.yml` que ya incluye los volúmenes de los certificados y tu contenedor `capturador` configurado para atrapar todo.
-```bash
-docker-compose -f docker-compose.fase2.yml up -d --build
-```
-> *Nota:* El comando va a crear los contenedores en segundo plano. El contenedor capturador (`nicolaka/netshoot`) ya está ejecutando `tcpdump` por ti internamente.
+Mensaje de prueba para ambas fases: **`mensaje-secreto-123`**.
 
-## Paso 3: Interactuar con el Chat (Generar tráfico)
-1. Abre tu navegador (Chrome/Edge/Firefox).
-2. Entra a: **`https://localhost:3000`** (¡Ojo que ahora es **HTTPS**!).
-3. El navegador te lanzará una **ADVERTENCIA DE SEGURIDAD** (tu conexión no es privada). Esto es completamente normal porque los certificados los creé yo (CA propia) y tu navegador no me conoce.
-4. Dale clic a "Configuración Avanzada" y luego a **"Continuar a localhost (inseguro)"**.
-5. Verás el minichat. Escribe nuestro mensaje de prueba: **`mensaje-secreto-123`** y dale enviar.
+## Fase 1: sin canal seguro (HTTP)
+1. Levanta el entorno:
+   ```bash
+   docker compose up -d --build
+   ```
+2. Empieza a capturar en Wireshark (lo0).
+3. Entra a **`http://localhost:3000`** y envía `mensaje-secreto-123`.
+4. Detén la captura y guárdala como **`capturas/fase1_sin_tls.pcapng`**.
+5. Evidencia: filtro `http`, clic derecho en el `POST /mensajes` → *Follow → HTTP Stream*.
+   **El mensaje se lee en texto plano.** Toma el pantallazo.
+6. Apaga el entorno:
+   ```bash
+   docker compose down
+   ```
 
-## Paso 4: Detener el entorno y recoger la captura
-Ya generaste el tráfico. Ahora vamos a apagar todo para que `tcpdump` termine de guardar el archivo.
-```bash
-docker-compose -f docker-compose.fase2.yml down
-```
-
-¡Listo! Revisa la carpeta `capturas/` en el proyecto. Verás un archivo llamado **`fase2_con_tls.pcap`**.
-
-## Paso 5: Wireshark (Evidencias)
-1. Abre `fase2_con_tls.pcap` con Wireshark.
-2. Escribe en la barra de filtros de Wireshark: **`tls`** y dale Enter.
-3. Deberías ver paquetes que dicen `Client Hello`, `Server Hello` (este es el handshake).
-4. Luego verás paquetes que dicen **`Application Data`**.
-5. Si intentas hacer *Click derecho -> Follow -> TLS Stream* (o TCP Stream), verás que el contenido es pura "basura" (caracteres incomprensibles). **El mensaje-secreto-123 ya no se puede leer**.
-6. ¡Toma tus pantallazos! Eso es lo que necesitamos para el informe de Cata.
+## Fase 2: con canal seguro (TLS)
+1. Levanta el entorno:
+   ```bash
+   docker compose -f docker-compose.fase2.yml up -d --build
+   ```
+2. Entra a **`https://localhost:3000`** (¡ahora es **HTTPS**!). El navegador mostrará una
+   **advertencia de seguridad**: es normal, el certificado lo firma nuestra propia CA (`certs/ca.crt`).
+   Dale "Configuración avanzada" → **"Continuar a localhost"**.
+   > En Firefox la excepción es por puerto: si el chat dice *Failed to fetch*, abre también
+   > `https://localhost:8080/mensajes`, acepta la advertencia y recarga el chat.
+3. Empieza a capturar en Wireshark (lo0).
+4. Envía `mensaje-secreto-123` desde el chat.
+5. Detén la captura y guárdala como **`capturas/fase2_con_tls.pcapng`**.
+6. Evidencias:
+   - Filtro `tls`: se ven `Client Hello` / `Server Hello` (handshake) y luego `Application Data`.
+   - Clic derecho → *Follow → TCP Stream*: el contenido es ilegible. **El mensaje ya no se puede leer.**
+   - Rechazo de HTTP plano: `curl -i http://localhost:8081/mensajes` responde **403**.
+   Toma los pantallazos.
+7. Apaga el entorno:
+   ```bash
+   docker compose -f docker-compose.fase2.yml down
+   ```
