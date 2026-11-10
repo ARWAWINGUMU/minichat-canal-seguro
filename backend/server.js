@@ -1,7 +1,11 @@
-const { createServer } = require('node:http');
+const http = require('node:http');
+const https = require('node:https');
+const fs = require('node:fs');
 
 const port = Number(process.env.PORT ?? 8080);
-const frontendOrigin = process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000';
+const frontendOrigin = process.env.FRONTEND_ORIGIN ?? 'https://localhost:3000';
+const useTLS = process.env.USE_TLS === 'true';
+
 const mensajes = [];
 
 function responder(res, status, body) {
@@ -73,12 +77,38 @@ async function atender(req, res) {
   responder(res, 201, mensaje);
 }
 
-createServer((req, res) => {
+const requestHandler = (req, res) => {
   atender(req, res).catch((error) => {
     if (res.destroyed) return;
     console.error(error);
     responder(res, 500, { error: 'No se pudo procesar la petición.' });
   });
-}).listen(port, '0.0.0.0', () => {
-  console.log(`API HTTP escuchando en el puerto ${port}`);
-});
+};
+
+if (useTLS) {
+  try {
+    const options = {
+      key: fs.readFileSync('/certs/server.key'),
+      cert: fs.readFileSync('/certs/server.crt')
+    };
+    https.createServer(options, requestHandler).listen(port, '0.0.0.0', () => {
+      console.log(`API HTTPS (Segura) escuchando en el puerto ${port}`);
+    });
+    
+    // Rechazar explícitamente HTTP plano (Requisito punto 8)
+    const httpPort = port + 1; // Un puerto diferente para demostrar el rechazo si lo intentan
+    http.createServer((req, res) => {
+        responder(res, 403, { error: 'Acceso denegado: Se requiere conexión HTTPS segura (TLS).' });
+    }).listen(httpPort, '0.0.0.0', () => {
+        console.log(`Servidor HTTP de rechazo activo en el puerto ${httpPort}`);
+    });
+
+  } catch (err) {
+    console.error("Error al cargar los certificados TLS:", err);
+    process.exit(1);
+  }
+} else {
+  http.createServer(requestHandler).listen(port, '0.0.0.0', () => {
+    console.log(`API HTTP (Insegura) escuchando en el puerto ${port}`);
+  });
+}
