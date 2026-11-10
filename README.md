@@ -1,6 +1,6 @@
 # Minichat · Laboratorio de canal seguro
 
-Implementación de Yeiner Arwawingumu Zapata Vallejo para la fase 1. Incluye el frontend, la API, ambos Dockerfile y el Compose en HTTP.
+Implementación Incluye el frontend, la API, ambos Dockerfile y el Compose en HTTP.
 
 ## Arranque con Docker Compose
 
